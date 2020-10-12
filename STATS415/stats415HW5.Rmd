@@ -1,0 +1,254 @@
+---
+title: "STATS415HW5"
+author: "Siqi Li"
+date: "11/2/2019"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(ISLR)
+library(class)
+library(MASS)
+library("FNN")
+```
+2.<br> 
+(Use Auto data set in the ISLR package)<br>
+Use the same data in HW4 Q2:
+```{r}
+# create new dataset with the new variable mpg01:
+mydata <- Auto %>%
+          mutate(mpg01 = ifelse(mpg > 25, 1, 0))
+#colnames(mydata)
+
+set.seed(123)
+# split the data:
+data_0 = which(mydata$mpg01 == 0)
+data_1 = which(mydata$mpg01 == 1)
+# Set training set size, Randomly pick 80% of observations to use as training
+
+train_id = c(sample(data_0, size = trunc(0.80 * length(data_0))),
+             sample(data_1, size = trunc(0.80 * length(data_1))))
+
+
+trainMydata <- mydata[train_id, ]
+testMydata <- mydata[-train_id, ]
+
+nrow(trainMydata)
+nrow(testMydata)
+```
+(a) Based on the results of Q2 part(b) in HW4, use the four variables: cylinders, displacement, horsepower and weight to predict mpg01: <br>
+```{r}
+model1 <- glm(mpg01 ~ cylinders + displacement + horsepower + weight, data = trainMydata, family = binomial)
+
+summary(model1)
+```
+Based on the results of summary(), we can see that in this model, only the predictor horsepower show significance. Recall in HW4 we have decided that all these four predictors are goog predictors and use them to fit both LDA and QDA model. But now in logistic regression, only one predictor show significance. This phenomenon should be caused by the collinearity. That is, the four predictors are not independent with each other.<br>
+(b)<br>
+```{r}
+train_pred = predict(model1, trainMydata)
+train_predProbs = binomial()$linkinv(train_pred)
+trainPrediction = rep(0, nrow(trainMydata))
+trainPrediction[train_predProbs > 0.5] = 1
+
+test_pred = predict(model1, testMydata)
+test_predProbs = binomial()$linkinv(test_pred)
+testPrediction = rep(0, nrow(testMydata))
+testPrediction[test_predProbs > 0.5] = 1
+
+class(trainPrediction)
+class(trainMydata$mpg01)
+
+# confusion matrix:
+table(trainPrediction, trainMydata$mpg01, dnn = c("Predicted", "Actual"))
+table(testPrediction, testMydata$mpg01, dnn = c("Predicted", "Actual"))
+
+# calculate training and testing errors:
+trainMSE = round(mean(trainPrediction != trainMydata$mpg01), 2)
+testMSE = round(mean(testPrediction != testMydata$mpg01), 2)  
+
+trainMSE
+testMSE
+```
+As shown above, the test error for the logist regression is 0.22, and the train error for the logist regression is 0.13.<br>
+Plot:
+```{r}
+# plot displacement vs weight, color by mpg01
+plot(trainMydata$displacement,trainMydata$weight,
+     col = c("red", "blue")[trainMydata$mpg01+1], 
+     xlab = "displacement", 
+     ylab = "weight",
+     main = "True class vs Predicted class by LDA, training data",
+     cex = 0.8) 
+points(trainMydata$displacement,trainMydata$weight,
+       pch = c(2,3)[trainPrediction],
+       cex = 0.8)
+legend("bottomright", c("true_mpg0","true_mpg1","pred_mpg0","pred_mpg1"),
+       col=c("red", "blue", "black", "black"), 
+       pch=c(1,1,2,3))
+```
+```{r}
+plot(testMydata$displacement,testMydata$weight,
+     col = c("red", "blue")[testMydata$mpg01+1], 
+     xlab = "displacement", 
+     ylab = "weight",
+     main = "True class vs Predicted class by LDA, testing data",
+     cex = 0.8) 
+points(testMydata$displacement,testMydata$weight,
+       pch = c(2,3)[testPrediction],
+       cex = 0.8)
+legend("bottomright", c("true_mpg0","true_mpg1","pred_mpg0","pred_mpg1"),
+       col=c("red", "blue", "black", "black"), 
+       pch=c(1,1,2,3))
+```
+(c)<br>
+Get median values of cylinders, displacement, horsepower, weight in the trainin data: <br>
+```{r}
+median_cylinders = median(trainMydata$cylinders)
+median_displacement = median(trainMydata$displacement)
+median_horsepower = median(trainMydata$horsepower)
+median_weight = median(trainMydata$weight)
+```
+Estimate the probability of a car having mpg over 25:<br>
+```{r}
+summary(model1)$coef
+```
+```{r}
+logit <- -0.238458506 * median_cylinders - 0.008331034 * median_displacement - 0.074635701 * median_horsepower - 0.001031607 * median_weight + 11.433443268
+```
+Calculate p:
+```{r}
+exp(logit)/(1 + exp(logit))
+```
+<br> The probability for this particular car to have mpg above 25 is 0.372261. <br>
+(d)<br>
+Peform KNN classification on training data: <br>
+```{r}
+# standardize the data since the value of the four predictors varies a lot
+# get the mean and standard deviations for the training data
+mean_train = colMeans(trainMydata[, c("cylinders", "displacement", "horsepower", "weight")])
+std_train = sqrt(diag(var((trainMydata[, c("cylinders", "displacement", "horsepower", "weight")]))))
+                 
+# training data:
+trainMydata_ = scale(trainMydata[, c("cylinders", "displacement", "horsepower", "weight")], 
+                     center = mean_train, 
+                     scale = std_train) 
+# testing data: 
+testMydata_ = scale(testMydata[, c("cylinders", "displacement", "horsepower", "weight")], 
+                     center = mean_train, 
+                     scale = std_train) 
+
+
+
+trainX = as.matrix(trainMydata_[,c("cylinders", "displacement", "horsepower", "weight")]) 
+testX = as.matrix(testMydata_[,c("cylinders", "displacement", "horsepower", "weight")])
+
+
+k_range = c(1, 3, 5, 10, 13, 15, 20, 30, 40, 50, 60, 70, 80)
+trainMSE = c()
+#knnTestErr = vector(length = length(kvals))
+
+for(i in 1:length(k_range)){
+knnTrain <- knn(train = trainX, 
+                test = trainX,
+                cl = trainMydata$mpg01,
+                k = k_range[i]) 
+ #print(knnTrain$pred)
+ #a = knnTrain != trainMydata$mpg01
+ trainMSE[i] <- mean(knnTrain != trainMydata$mpg01)
+}
+```
+Perform KNN classification on testing data: <br>
+```{r}
+testMSE = c() 
+for(i in 1:length(k_range)){
+knnTest <- knn(train = trainX, 
+                   cl = trainMydata$mpg01,
+                   test = testX,
+                   k = k_range[i]) 
+ testMSE[i] <- mean(knnTest != testMydata$mpg01)
+}
+testMSE
+```
+Plot train and test errors against K: <br>
+```{r}
+# plot classification error vs choice of k
+plot(k_range, trainMSE, type = "b", col = "blue", cex = 1, pch = 20, 
+     xlab = "Number of neighbors (K)", 
+     ylab = "classification error",
+     ylim = c(0,0.3),
+     main = "Classification error for different K")
+
+lines(k_range, testMSE, type = "b", lwd = 2, col = "red")
+
+legend("bottomright", legend = c("training error", "test error"),
+col = c("blue", "red"), cex = .75, lwd = c(2, 2), pch = c(1, 1), lty = c(1, 1))
+```
+As shown above, for traning data, the MSE is lowest when K = 1; <br>
+for testing datam the MSE is lowest when K = 15.
+<br>
+(e) <br>
+```{r}
+# the testing error when K = 15
+testMSE[6]
+k_range[6]
+# the testing error when K = 1
+trainMSE[1]
+k_range[1]
+```
+As shown above, the smallest testing error occurs when K = 15, and it is 0.1375;<br>
+the smallest training error occurs when K = 1, and it is 0. <br>
+```{r}
+# plot displacement vs weight, color by mpg01
+#train
+plot(trainMydata$displacement,trainMydata$weight,
+     col = c("red", "blue")[trainMydata$mpg01+1], 
+     xlab = "displacement", 
+     ylab = "weight",
+     main = "True class vs Predicted class by KNN, training data",
+     cex = 0.8) 
+points(trainMydata$displacement,trainMydata$weight,
+       pch = c(2,3)[knnTrain],
+       cex = 0.8)
+legend("bottomright", c("true_mpg0","true_mpg1","pred_mpg0","pred_mpg1"),
+       col=c("red", "blue", "black", "black"), 
+       pch=c(1,1,2,3))
+```
+```{r}
+# test
+plot(trainMydata$displacement,trainMydata$weight,
+     col = c("red", "blue")[trainMydata$mpg01+1], 
+     xlab = "displacement", 
+     ylab = "weight",
+     main = "True class vs Predicted class by KNN, testing data",
+     cex = 0.8) 
+points(trainMydata$displacement,trainMydata$weight,
+       pch = c(2,3)[knnTest],
+       cex = 0.8)
+legend("bottomright", c("true_mpg0","true_mpg1","pred_mpg0","pred_mpg1"),
+       col=c("red", "blue", "black", "black"), 
+       pch=c(1,1,2,3))
+```
+<br>
+(f)<br>
+No. The KNN classification can only tell us, given the four predictors all at the median values, the prediction of the value of mpg01(whether it's 0 or 1).
+```{r}
+data_predict <- as.matrix(data.frame("cylinders" = median_cylinders, 
+                                     "displacement"= median_displacement, 
+                                     "horesepower" = median_horsepower,
+                                     "weight" = median_weight))
+data_predict
+
+knn(trainX, data_predict, trainMydata$mpg01, k = 45 )[1]
+#knn(trainX, data_predict, trainMydata$mpg01, k = 15 )
+```
+As shown above, the KNN classification suggests that for a car with the four predictors all at the median values, it's mpg01 value should be 0.
+<br>
+(g)<br>
+Compare LDA, QDA, logistics regression, and KNN: <br>
+In HW4, we show that the test error for LDA is: 0.2125, the test error for QDA is: 0.175, and this suggests that QDA performs better than LDA. <br>
+In HW5, we show that the test error for logistics regression is: 0.15, and the test error for KNN when choose k=15 is: 0.1375 <br>
+Since among the four models, the KNN has the lowest testing error, we can conclude that the assumptions for all other three models are all likely to be false. Thus, for the distribution of data(mpg01), it does not follow Gaussian distribution, and it's logit transformation does not follow a linear regression model. <br>
+As for the boundary of the data, since the all three assumptions are not likely to be true, we can say that none of the boundaries of the three models are suitable to apply on our data. That is, the boundary of mpg01 is not a line, nor a quadratic line, nor a boundary that can be explanined by logistic regression model, but something else.
+
+

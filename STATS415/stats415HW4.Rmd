@@ -1,0 +1,189 @@
+---
+title: "stats415HW4"
+author: "Siqi Li"
+date: "10/3/2019"
+output: html_document
+---
+2.
+<br>
+```{r}
+library(ISLR)
+library(tidyverse)
+```
+<br>
+(a)
+create variable mpg01:
+```{r}
+mydata <- Auto %>%
+          mutate(mpg01 = ifelse(mpg > 25, 1, 0))
+colnames(mydata)
+head(mydata)
+
+summary(mydata$cylinders)
+```
+<nr>
+(b)
+scatterplot:
+```{r}
+pairs(mydata[2:8], col=c("blue","red")[mydata$mpg01 +1], 
+      pch=c(1,2)[mydata$mpg01])
+  par(xpd=TRUE)
+legend(0.34, 0.71, as.vector(unique(mydata$mpg01)),
+col=c("blue","red"), pch=1:3, cex = 0.5)
+```
+Boxplots:
+```{r}
+par(mfrow=c(2,4))
+boxplot(cylinders ~ mpg01, data = mydata)
+boxplot(displacement~ mpg01, data = mydata)
+boxplot(horsepower~ mpg01, data = mydata)
+boxplot(weight~ mpg01, data = mydata)
+boxplot(acceleration~ mpg01, data = mydata)
+boxplot(year~ mpg01, data = mydata)
+boxplot(origin~ mpg01, data = mydata)
+```
+Based on the results of boxplot, we know that cylinders, displacement, horsepower and weight show good features for the prediction of mpg01, because for each of the four variable, the distribution of the variable when mpg =1 and mpg = 0 vary greatly(the ranges have no overlap). Thus, these four variables differentiate the two categories of the mpg01 clearly.
+<br>
+(c)
+Spilt the data into training set and testing set in the proportion fo 80% vs. 20%
+```{r}
+set.seed(123) 
+
+# create new dataset with the new variable mpg01:
+mydata <- Auto %>%
+          mutate(mpg01 = ifelse(mpg > 25, 1, 0))
+colnames(mydata)
+
+set.seed(123)
+# split the data:
+data_0 = which(mydata$mpg01 == 0)
+data_1 = which(mydata$mpg01 == 1)
+# Set training set size, Randomly pick 80% of observations to use as training
+
+train_id = c(sample(data_0, size = trunc(0.80 * length(data_0))),
+             sample(data_1, size = trunc(0.80 * length(data_1))))
+
+
+trainMydata <- mydata[train_id, ]
+testMydata <- mydata[-train_id, ]
+
+nrow(trainMydata)
+nrow(testMydata)
+```
+<br>
+(d) 
+Step1:
+Perform LDA:
+```{r}
+library(MASS) # loads the MASS package
+Mydata_lda = lda(mpg01 ~ cylinders + displacement + horsepower + weight, data = trainMydata) 
+Mydata_lda 
+```
+As shown above, the estimated $\hat\pi_1$ is 0.4121406, 
+and the estimated $\hat\pi_0$ is 0.5878594.
+
+For cylinders, the estimated $\hat\mu_1$ is 4.116279, 
+and the estimated $\hat\mu_0$ is 6.402174.
+
+For displacement, the estimated $\hat\mu_1$ is 110.4031, 
+and the estimated $\hat\mu_0$ is 251.5054
+
+For horsepower, the estimated $\hat\mu_1$ is 75.44186, 
+and the estimated $\hat\mu_0$ is 124.92935
+
+For weight, the estimated $\hat\mu_1$ is 2259.574, 
+and the estimated $\hat\mu_0$ is 3465.332
+<br<
+Step2:
+Calculate training and testing error:
+```{r}
+Mydata_lda_train_pred = predict(Mydata_lda, trainMydata)$class 
+Mydata_lda_test_pred = predict(Mydata_lda, testMydata)$class
+
+train_err = mean(Mydata_lda_train_pred != trainMydata$mpg01) 
+test_err = mean(Mydata_lda_test_pred != testMydata$mpg01) 
+
+train_err
+test_err
+```
+As shown above, the traning error is 0.14377 and the testing error is 0.2025316.
+<br>
+Step 3: Visualize the training data:
+```{r}
+# plot displacement vs weight, color by mpg01
+plot(trainMydata$displacement,trainMydata$weight,
+     col = c("red", "blue")[testMydata$mpg01+1], 
+     xlab = "displacement", 
+     ylab = "weight",
+     main = "True class vs Predicted class by LDA",
+     cex = 0.8) 
+points(trainMydata$displacement,trainMydata$weight,
+       pch = c(2,3)[Mydata_lda_test_pred],
+       cex = 0.8)
+legend("bottomright", c("true_mpg0","true_mpg1","pred_mpg0","pred_mpg1"),
+       col=c("red", "blue", "black", "black"), 
+       pch=c(1,1,2,3))
+```
+<br>
+(e) 
+Step1:
+Perform QDA:
+```{r}
+Mydata_qda = qda(mpg01 ~ cylinders + displacement + horsepower + weight, data = trainMydata) 
+Mydata_qda 
+```
+Step2:
+Calculate training and testing error:
+```{r}
+Mydata_qda_train_pred = predict(Mydata_qda, trainMydata)$class 
+Mydata_qda_test_pred = predict(Mydata_qda, testMydata)$class
+
+train_err_q = mean(Mydata_qda_train_pred != trainMydata$mpg01) 
+test_err_q = mean(Mydata_qda_test_pred != testMydata$mpg01) 
+
+train_err_q
+test_err_q
+```
+As shown above, the traning error is 0.1373802 and the testing error is 0.164557.
+<br>
+Step 3: Visualize the training data:
+```{r}
+# plot displacement vs weight, color by mpg01
+plot(trainMydata$displacement,trainMydata$weight,
+     col = c("red","blue")[testMydata$mpg01+1], 
+     xlab = "displacement", 
+     ylab = "weight",
+     main = "True class vs Predicted class by QDA",
+     cex = 0.8
+)
+points(trainMydata$displacement,trainMydata$weight, 
+       pch = c(2,3)[Mydata_qda_test_pred],
+       cex = 0.8)
+legend("bottomright", 
+       c("true_mpg0","true_mpg1", "pred_mpg0","pred_mpg1"),
+       col=c("red",  "blue", "black", "black"), 
+       pch=c(1,1,2,3))
+```
+<br>
+(f)
+<br>
+Comparison:
+(1) Based on the test errors we have in part(d) and part(e),  the test error for LDA is 0.2025316, and the test error for QDA is 0.164557. The one for QDA is smaller, which indicates that QDA performs better.
+(2) According to the two plots of the training data point in (d) and (e) , we can also see that number of miss-classified points by QDA(the point of either (red circle + cross) or (blue circle + triangle)) is smaller than the number by LDA. Which agrees with the results of training error.
+In conclusion, QDA performs better. 
+<br>
+class-specific covariances:
+In the comparison part, we see that QDA performs better in this case. Thus, we can conclude that the assumaption for QDA is better than the one for LDA. Therefore, we can conclude that the class-specific covariences is not equal for each classes, so the model of QDA would perform better.
+
+
+
+
+
+
+
+
+
+
+
+
+

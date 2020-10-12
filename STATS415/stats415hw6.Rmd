@@ -1,0 +1,252 @@
+---
+title: "stats415HW6"
+author: "Siqi Li"
+date: "11/11/2019"
+output: html_document
+---
+
+Q3<br>
+```{r}
+library(ISLR)
+library(tidyverse)
+library(SignifReg)
+library(leaps)
+library(boot)
+library(caret)
+```
+(a)<br>
+Split data:<br>
+```{r}
+set.seed(234)
+# choose 30% of the data at random for testing
+test_size <- floor(nrow(College) * 0.30)
+test_id <- sample(1:nrow(College), test_size)
+testCollege <- College[test_id, ]
+# the rest of data for testing:
+trainCollege <- College[-test_id, ]
+```
+Define a new variable Accept/Apps: <br>
+```{r}
+# get the new variable in both testing and training data:
+trainCollege <- trainCollege %>% mutate(AcceptAppsRatio = Accept / Apps)
+testCollege <- testCollege %>% mutate(AcceptAppsRatio = Accept / Apps)
+```
+check the data types in training dataset: <br>
+```{r}
+str(trainCollege)
+ncol(trainCollege)
+```
+plot the variable against every variable in the training dataset: <br>
+scatterplots: <br>
+```{r}
+# Scatterplots: used for continuous variables
+par(mfrow = c(2,2))
+plot(data = trainCollege, AcceptAppsRatio ~ Apps)
+plot(data = trainCollege, AcceptAppsRatio ~ Accept)
+plot(data = trainCollege, AcceptAppsRatio ~ Enroll)
+plot(data = trainCollege, AcceptAppsRatio ~ Top10perc)
+plot(data = trainCollege, AcceptAppsRatio ~ Top25perc)
+plot(data = trainCollege, AcceptAppsRatio ~ F.Undergrad)
+plot(data = trainCollege, AcceptAppsRatio ~ P.Undergrad)
+plot(data = trainCollege, AcceptAppsRatio ~ Outstate)
+plot(data = trainCollege, AcceptAppsRatio ~ Room.Board)
+plot(data = trainCollege, AcceptAppsRatio ~ Books)
+plot(data = trainCollege, AcceptAppsRatio ~ Personal)
+plot(data = trainCollege, AcceptAppsRatio ~ PhD)
+plot(data = trainCollege, AcceptAppsRatio ~ Terminal)
+plot(data = trainCollege, AcceptAppsRatio ~ S.F.Ratio)
+plot(data = trainCollege, AcceptAppsRatio ~ perc.alumni)
+plot(data = trainCollege, AcceptAppsRatio ~ Expend)
+plot(data = trainCollege, AcceptAppsRatio ~ Grad.Rate)
+# Boxplot: Used for categorical variable Private
+boxplot(data = trainCollege, AcceptAppsRatio ~ Private)
+```
+As shown above plots, the variable Room.Board and Grad.Rate appears to be most predictive.
+<br>
+(b)<br>
+Fit a linear model using least squares:<br>
+```{r}
+model1 <- glm(data = trainCollege, AcceptAppsRatio ~ .)
+summary(model1)
+```
+Get training and testing errors: <br>
+```{r}
+predict_train_1 = predict.glm(model1, trainCollege)
+predict_test_1 = predict.glm(model1, testCollege)
+
+trainerror_1 = mean((trainCollege$AcceptAppsRatio - predict_train_1)^2)
+testerror_1 = mean((testCollege$AcceptAppsRatio - predict_test_1)^2)
+
+trainerror_1
+testerror_1
+```
+As shown above, the training error is 0.009480855, and the testing error is 0.008436671. <br>
+<br>
+(c)<br>
+Perform forward and backward selection, with a threshold of $\alpha$ = 0.05: <br>
+```{r}
+# forward model:
+Select.p.fwd = SignifReg(lm(AcceptAppsRatio ~., data = trainCollege), alpha = 0.05, direction = "forward",
+                         correction = "None", trace = F)
+# backward model:
+Select.p.bwd = SignifReg(lm(AcceptAppsRatio ~., data = trainCollege), alpha = 0.05, direction = "backward", criterion = "p-value", correction = "None", trace = F)
+
+Select.p.fwd$coefficients
+
+Select.p.bwd$coefficients
+```
+As shown above, the forward method select a model of 18 predictors(the full model), while the backward method select a model of 7 predictors, which are Private, Apps, Accept, Enroll, Outstate, Books, and Personal. <br>
+Calculate the training and testing errors: <br>
+```{r}
+# For the chosen model of the forward method:
+predict_train_forward = predict(Select.p.fwd, trainCollege)
+predict_test_forward = predict(Select.p.fwd, testCollege)
+
+trainerror_forward = mean((trainCollege$AcceptAppsRatio - predict_train_forward)^2)
+testerror_forward = mean((testCollege$AcceptAppsRatio - predict_test_forward)^2)
+
+trainerror_forward
+testerror_forward
+
+# For the chosen model of the backward method:
+predict_train_backward = predict(Select.p.bwd, trainCollege)
+predict_test_backward = predict(Select.p.bwd, testCollege)
+
+trainerror_backward = mean((trainCollege$AcceptAppsRatio - predict_train_backward)^2)
+testerror_backward = mean((testCollege$AcceptAppsRatio - predict_test_backward)^2)
+
+trainerror_backward
+testerror_backward
+```
+As shown above, the training error of the forward-chosen model is 0.009480855, and the testing error of the forward-chosen model is 0.008436671; <br>
+the training error of the backward-chosen model is 0.01045669, and the testing error of the backward-chosen model is 0.008853622. <br>
+(d)<br>
+Use AIC, BIC, and adjusted R2 to select a potentially smaller model: <br>
+```{r}
+regfit.full = regsubsets(AcceptAppsRatio~. , data = trainCollege, nvmax = ncol(trainCollege)-1 )
+regfit.Summary = summary(regfit.full) 
+#ames(regfit.Summary)
+
+# AIC:
+#regfit.Summary$aic
+best_aic = which.min(regfit.Summary$cp)
+
+# BIC:
+#regfit.Summary$bic
+best_bic = which.min(regfit.Summary$bic)
+
+# adjusted R squared:
+#regfit.Summary$adjr2
+best_adjr2= which.max(regfit.Summary$adjr2)
+
+best_aic
+best_bic
+best_adjr2
+```
+```{r}
+regfit.Summary$which
+```
+As shown above, the model chosen by smallest AIC is the 10-predictors model, whose predictors are: Private, Apps, Accept, Top25perc, P.Undergrad, Room.Board, Books, S.F.Ratio, Expend and Grad.Rate; <br>
+```{r}
+model_AIC <- glm(data = trainCollege, AcceptAppsRatio ~ Private + Apps  + Accept + Top25perc + P.Undergrad + Room.Board + Books + S.F.Ratio + Expend + Grad.Rate)
+```
+the model chosen by smallest BIC is the 5-predictors model, whose predictors are: Private, Apps, Accept, Top25perc, and Room.Board; <br>
+```{r}
+model_BIC <- glm(data = trainCollege, AcceptAppsRatio ~ Private + Apps  + Accept + Top25perc + Room.Board)
+```
+the model chosen by smallest adjusted R-sqaured is the 14-predictors model: <br>
+```{r}
+model_adjr2 <- glm(data = trainCollege, AcceptAppsRatio ~ Private + Apps  + Accept + Enroll + Top25perc + P.Undergrad + Room.Board + Books + Personal + PhD + S.F.Ratio + perc.alumni + Expend + Grad.Rate)
+```
+<br>
+Calculate the training and testing error of each three of the models selected by IC, BIC, and adjusted R2:
+```{r}
+# For the chosen model of AIC:
+predict_train_AIC = predict(model_AIC, trainCollege)
+predict_test_AIC = predict(model_AIC, testCollege)
+trainerror_AIC = mean((trainCollege$AcceptAppsRatio - predict_train_AIC)^2)
+testerror_AIC = mean((testCollege$AcceptAppsRatio - predict_test_AIC)^2)
+
+trainerror_AIC
+testerror_AIC
+
+# For the chosen model of BIC:
+predict_train_BIC = predict(model_BIC, trainCollege)
+predict_test_BIC = predict(model_BIC, testCollege)
+trainerror_BIC = mean((trainCollege$AcceptAppsRatio - predict_train_BIC)^2)
+testerror_BIC = mean((testCollege$AcceptAppsRatio - predict_test_BIC)^2)
+
+trainerror_BIC
+testerror_BIC
+
+# For the chosen model of adjusted R squared:
+predict_train_adjr2 = predict(model_adjr2, trainCollege)
+predict_test_adjr2 = predict(model_adjr2, testCollege)
+trainerror_adjr2 = mean((trainCollege$AcceptAppsRatio - predict_train_adjr2)^2)
+testerror_adjr2 = mean((testCollege$AcceptAppsRatio - predict_test_adjr2)^2)
+
+trainerror_adjr2
+testerror_adjr2
+```
+As shown above, for the AIC-selected model, it's training error is 0.009595148 and testing error is 0.008437857<br>
+for the BIC-selected model, it's training error is 0.01008281 and testing error is 0.008660229 <br>
+for the adjusted-R^2 selected model, it's trainng error is 0.009495198, and the testing error is 0.008399784
+<br>
+(e)<br>
+Use 5-fold cross-validation to estimate the test error from the training data and apply to the previous models: <br>
+step1: split the training data into random five folds:
+```{r}
+# the AIC-selected model(p=10)
+cv.error.5_AIC = rep(0,5) 
+for (i in 1:5){
+cv.error.5_AIC[i] = cv.glm(trainCollege, model_AIC, K=5)$delta[1]
+}
+mean(cv.error.5_AIC)
+
+# the BIC-selected model(p=5)
+cv.error.5_BIC = rep(0,5) 
+for (i in 1:5){
+cv.error.5_BIC[i] = cv.glm(trainCollege, model_BIC, K=5)$delta[1]
+}
+mean(cv.error.5_BIC)
+
+# the adjusted R^2 selected model(p=14)
+cv.error.5_adjr2 = rep(0,5) 
+for (i in 1:5){
+cv.error.5_adjr2[i] = cv.glm(trainCollege, model_adjr2, K=5)$delta[1]
+}
+mean(cv.error.5_adjr2)
+
+# the full model(also the forward selected model)(p=18):
+cv.error.5_full = rep(0,5) 
+for (i in 1:5){
+cv.error.5_full[i] = cv.glm(trainCollege, model1, K=5)$delta[1]
+}
+mean(cv.error.5_full)
+
+# the backward selected model(p=7)
+Select.p.bwd <- glm(data = trainCollege, AcceptAppsRatio ~  Private + Apps + Accept + Enroll + Outstate + Books + Personal)
+cv.error.5_backward = rep(0,5) 
+for (i in 1:5){
+cv.error.5_backward[i] = cv.glm(trainCollege, Select.p.bwd, K=5)$delta[1]
+}
+mean(cv.error.5_backward)
+```
+Compare the data: <br>
+```{r}
+models <- c("AIC model", "BIC model", "adjusted-r^2", "full model", "forward model", "backward model")
+trainError <- c(trainerror_AIC, trainerror_BIC, trainerror_adjr2, trainerror_1, trainerror_forward, trainerror_backward)
+testError <- c(testerror_AIC, testerror_BIC, testerror_adjr2, testerror_1, testerror_forward, testerror_backward)
+CVerror <- c(0.01060228, 0.01125239, 0.01132437, 0.01157968, 0.01157968, 0.01214117)
+
+hw6 <- as.data.frame(cbind(models, trainError, testError, CVerror))
+hw6
+```
+As shown above, the model having the smallest training error is the full(backward-selected)model; <br>
+the model having the smallest testing error is the adjusted-r^2 selected model; <br>
+the model having the smallesr CV error is the AIC-selected model.
+
+
+
+
+

@@ -1,0 +1,124 @@
+---
+title: "STATS415HW8"
+author: "Siqi Li"
+date: "11/23/2019"
+output: html_document
+---
+```{r}
+library(ISLR)
+library(tidyverse)
+library(SignifReg)
+library(leaps)
+library(boot)
+library(caret)
+library(glmnet)
+library(pls)
+```
+2. <br>
+```{r }
+# check if there's NA in the data
+College %>% nrow()
+College %>% na.omit() %>% nrow()
+```
+As shown above, there's no NAs in our dataset. <br>
+Split data:<br>
+```{r}
+set.seed(234)
+# choose 30% of the data at random for testing
+test_size <- floor(nrow(College) * 0.30)
+test_id <- sample(1:nrow(College), test_size)
+testCollege <- College[test_id, ]
+# the rest of data for testing:
+trainCollege <- College[-test_id, ]
+```
+Define a new variable Accept/Apps: <br>
+```{r}
+# get the new variable in both testing and training data:
+trainCollege <- trainCollege %>% mutate(AcceptAppsRatio = Accept / Apps)
+testCollege <- testCollege %>% mutate(AcceptAppsRatio = Accept / Apps)
+```
+Obtain matrix of predictors: <br>
+```{r }
+X_train <- model.matrix(AcceptAppsRatio ~ ., trainCollege)[,-1]
+Y_train <- trainCollege$AcceptAppsRatio
+X_test <- model.matrix(AcceptAppsRatio ~ ., testCollege)[,-1]
+Y_test <- testCollege$AcceptAppsRatio
+```
+(a) <br>
+Perform Principal Component Analysis on the predictors:<br>
+(1) We need to standradize the predictors because: <br>
+```{r }
+summary(trainCollege$Private)
+summary(trainCollege$Apps)
+summary(trainCollege$Accept)
+summary(trainCollege$Enroll)
+summary(trainCollege$Top10perc)
+summary(trainCollege$Top25perc)
+summary(trainCollege$F.Undergrad)
+summary(trainCollege$P.Undergrad)
+summary(trainCollege$Outstate)
+summary(trainCollege$Room.Board)
+summary(trainCollege$Books)
+summary(trainCollege$Personal)
+summary(trainCollege$PhD)
+summary(trainCollege$Terminal)
+summary(trainCollege$S.F.Ratio)
+summary(trainCollege$perc.alumni)
+summary(trainCollege$Expend)
+summary(trainCollege$Grad.Rate)
+```
+As shown above, the variables are not in the same scale so we need to standardize the predictors to make the analysis independent of units.<br>
+Make a scree plot of the eigenvalues:<br>
+```{r }
+# run PCA:
+PCA <- prcomp(x = X_train, center = T, scale = T)
+# create screeplot
+screeplot(PCA)
+```
+How many eigenvalues does one need to explain 95% of the variance in the data: <br>
+```{r }
+summary(PCA)
+```
+As shown above, from the Cumulative Proportion, 12 eigenvalues are needed to explain 95% of the variance in the data. <br>
+Report loadings of the first two PCs: <br>
+```{r }
+PCA$rotation[, 1:2]
+```
+```{r }
+sort(abs(PCA$rotation[, 1]), decreasing = TRUE)
+```
+As shown above, for the first component, the sorted absolute value of the loadings are shown above. And we can see that the loadings of the vairable "Top10perc", "Top25perc", "Expend", "Outstate", "PhD ", "Terminal", "Grad.Rate", "Room.Board", "perc.alumni", "S.F.Ratio", "Apps", "Accept", and "Enroll" are relarive large , so they play more important roles in the first principle component.<br>
+```{r }
+sort(abs(PCA$rotation[, 2]), decreasing = TRUE)
+```
+As shown above, for the second component, the sorted absolute values of the loadings are shown above. And we can see that the loadings of the vairable "F.Undergrad", "Enroll", "Accept", "Private", "Apps", "P.Undergrad", "S.F.Ratio", and "Outstate" are relative large, so they play more important roles in the second principle component. <br>
+(b)<br>
+Fit a PLS model on the training set, with the number of principal components K chosen by cross-validation. <br>
+```{r }
+PLS <- plsr(AcceptAppsRatio ~ ., data = trainCollege, scale = TRUE, validation = "CV" )
+summary(PLS)
+```
+K associated with the lowest cross-validation MSE: K = 17. <br>
+training and testing errors: <br>
+```{r }
+#training error:
+PLS.pred <- predict(PLS, X_train, ncomp = 17) 
+PLSTrainMSE <- mean((PLS.pred - Y_train)^2)
+PLSTrainMSE
+# testing error:
+PLS.pred <- predict(PLS, X_test, ncomp = 17) 
+PLSTestMSE <- mean((PLS.pred - Y_test)^2)
+PLSTestMSE
+```
+As shown above, the training error is 0.009480855, and the testing error is 0.008436671. <br>
+(c)<br>
+Comments: <br>
+Recall the data in hw6 and hw7: <br>
+For the six models in hw6, we choose the AIC-selected model, because the testing errors of all these models are small and the AIC model contains the smallest amount of predictors(10 predictors); 
+In hw7, we first exclude the ridge model, and the lasso model has 14 predictors. Again, since the testing errors are close, we still prefer the AIC selected model since it has fewer predictors.<br>
+Notice that all testing errors of these models are small and close to each other, so we consider better model according to their complexity. <br>
+For the PLS above, the K we choose is 17, which suggests the fitted PLS model is still more complex than the previous AIC model. In summary, we still prefer the AIC selected model acroos hw6 to hw8. <br>
+
+
+
+
