@@ -1,0 +1,137 @@
+---
+title: "stats415HW2，Q2"
+author: "Siqi Li"
+date: "9/15/2019"
+output: html_document
+---
+
+Upload package ISLR:
+```{r}
+library(ISLR)
+library(tidyverse)
+summary(Carseats)
+```
+
+
+Use function ml() to fit a multiple regression model to predict Sales 
+using all other vairables(no interaction):
+```{r}
+model1 <- lm(data=Carseats, Sales ~ CompPrice + Income + Advertising + Population + 
+              Price + ShelveLoc + Age + Education + Urban + US)
+summary(model1)
+
+```
+(a)1)
+As the above summary suggested, the coefficients for each variables are:
+CompPrice        0.0928153  
+Income           0.0158028  
+Advertising      0.1230951 
+Population       0.0002079   
+Price           -0.0953579  
+ShelveLocGood    4.8501827  
+ShelveLocMedium  1.9567148  
+Age             -0.0460452  
+Education       -0.0211018      
+UrbanYes         0.1228864      
+USYes           -0.1840928  
+
+(a)2) 
+Based on both the multiple R-squared, which is 0.8734 and the adjusted R-squared which is 0.8698, the model1 fits well with the data.
+
+a)3)
+```{r}
+plot(model1)
+```
+In the Residuals vs Fitted plot, there's no distinctive patter and this suggests that the data fits well in general.
+In the Normal Q-Q plot, we can see that the residuals are quite normally distributed, which is good.
+In the scale-location plot, the line is horizontal and this suggests that residuals are spread relatively equally along the ranges of predictors.
+In the residuals vs leverage plot, cook's distance lines are barely seen, whcih suggests that there is no influtential cases.
+In summary, the diagnostic residual plots show good signs in general.
+
+(b)
+```{r}
+summary(model1)
+```
+    As seen in the above summary, variables that have significant p-values are:
+    CompPrice, Income, Advertising, Price, ShelveLoc and Age.
+    The hypothesis corresponding to the p-value for the variable Urban is:
+    H0: β(Urban) = 0; H1: β(Urban) ≠ 0
+    Thus, based on the p-value,  we reject the null hypothesis that β(Urban) = 0
+    
+(c) Drop all the variables that are not significant in the full model:
+```{r}
+model2 <- lm(data=Carseats, Sales ~ CompPrice + Income + Advertising + 
+               Price + ShelveLoc + Age)
+summary(model2)
+```
+
+Using R-squared, compare the fit of the reduced model to the fit of the full model:
+
+The Multiple R-squared of the reduced model(model2) is 0.872 while the Multiple R-squared of the full model (mod3l1) is 0.8734, which is reasonalbe since R-squared increases when additional variable are added. Since R-squared don't change obviously, we can say that thos variables without significant p-values are not that useful for this linear regression.
+And the adjusted R-squared of the reduced model(model2) is 0.8697, while the adjusted R-squeared of the full model (modle1) is 0.8698. The difference is little and similarly, we can say that the full model and the reduced model has no siginificant difference.
+
+(d) Use anova() to do more comparison:
+
+```{r}
+anova(model1, model2)
+```
+
+Pr(>F) = 0.358, which is quite large. Therefore, there is no significant difference between model1(the full model) and model2(the reduced model).
+And this result agrres with the comparison and analysis of both their R-squared anf adjusted R-squared in part (c) 
+
+(e) The equation form of the reduced model is:
+
+ Sales = 0.092571 * CompPrice +  0.015785 * Income + 0.115903 *Advertising - 0.095319 Price + 
+         4.835676 * ShelveLocGood + 1.951993 * ShelveLocMedium - 0.046128 *Age
+<div style="margin-bottom:20px;">
+</div>
+Interpretation:
+Given all other variables fixed, when Comprice increases 1 unit, Sales increases 0.092571 unit;
+Given all other variables fixed, when Income increases 1 unit, Sales increases 0.015785 unit;
+Given all other variables fixed, when Advertising increases 1 unit, Sales increases 0.115903 unit;
+Given all other variables fixed, when Price increases 1 unit, Sales increases -0.095319 unit;
+Given all other variables fixed, when ShelveLoc is good unit, it increases 1, Sales increases 4.835676 unit;
+Given all other variables fixed, when ShelveLoc is Medium and it increases 1 unit, Sales increases 1.951993 unit;
+Given all other variables fixed, when Age increases 1 unit, Sales increases -0.046128 unit;
+
+(f) Add an interaction term between the variable ShelveLoc and the variable Price:
+```{r}
+model3 <- lm(data=Carseats, Sales ~ CompPrice + Income + Advertising + 
+               Price + ShelveLoc + Age + ShelveLoc * Price)
+summary(model3)
+```
+The esitmated coeffiencts are:
+
+CompPrice              0.092592   
+Income                 0.015766   
+Advertising            0.116003   
+Price                 -0.098594   
+ShelveLocGood          4.185088   
+ShelveLocMedium        1.535031   
+Age                   -0.046494   
+Price:ShelveLocGood    0.005619     
+Price:ShelveLocMedium  0.003650   
+
+Interpretation(interaction term):
+
+Given all other variables fixed, when Price*ShelveLocGood increases 1 unit, Sales increases 4.185088 unit;
+Given all other variables fixed, when Price*ShelveLocMedium increases 1 unit, Sales increases 1.535031 unit;
+
+Since the p-value for both Price:ShelveLocGood and Price:ShelveLocMedium are far larger tgan 0.05, which suggests that there's no significant difference the two variables can add to the linear model, we can say that the interaction term is not necessary.
+
+(g) Use anova() again to test whether the interaction term is needed:
+```{r}
+anova(model1, model3)
+anova(model2, model3)
+```
+
+Since both Pr(>F) are far larger than 0.05, we can say there is no significant difference between model3(the interaction model) and model2(the reduced model), as well as model3(the interaction model) and model1(the full model). Thus, the interaction term is not needed.
+
+
+
+
+
+
+
+
+
