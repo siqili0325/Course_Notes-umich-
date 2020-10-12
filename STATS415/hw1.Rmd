@@ -1,0 +1,150 @@
+---
+title: "415HW1"
+author: "Siqi Li"
+date: "9/10/2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+Introduction
+
+The report contains summrary of basic statistical analysis results of the College data set downloaded from the webpage http://faculty.marshall.usc.edu/gareth-james/ISL/data.html.
+
+
+# *****************************Part I ****************************
+Some numerical summaries for each variable of the data
+
+
+
+```{r}
+library(tidyverse)
+MyData <- read.csv(file="College.csv", header=TRUE, sep=",")
+summary(MyData)
+```
+
+The above is the summary of the 19 variables of MyData, imported from College.csv. The summary includes the min and max value of each continuous variable and the sum of each catgories of catgorical variables.
+
+
+# *****************************Part I ****************************
+
+Some multivriate munerical summaries (eg. pairwise correlations)
+
+
+Calculate the corr between the 18 continous variables(except for the Private variable)
+
+The correlation between New studnets from top 10% of high school class and and Grduation rate:
+
+```{r}
+ cor(MyData[,3:19])
+```
+
+From the above summary, there's several interesting obervation:
+ The varibale new students from top 10% of high school class and the variable new students from top 25% of high school class are highly positive correlated, which makes sense, since for one college, the high-school academic performace for freshmen should be in a certain range and distributed relatively uniform;
+ The variable number applicants received and the variable number of applicants accepted are also highly positive correlated, which also make since the Admission office of a college would controll their new undergraduates in a certian range. If someone is accepted but defer the offer later, the position will be provided to someone who is likely to enroll.
+ 
+
+
+# *****************************Part III ****************************
+Some graphical summaries for each variable
+
+
+In this part, I do both the histogram and boxplot for each variable,
+and pick out variables that have more obvious charactristics in either histogram or boxplot to summarize.
+
+```{r}
+# Histograms:
+hist(MyData$Apps)
+hist(MyData$Accept)
+hist(MyData$Enroll)
+hist(MyData$S.F.Ratio)
+
+hist(MyData$Top10perc)
+hist(MyData$Top25perc)
+hist(MyData$F.Undergrad)
+hist(MyData$P.Undergrad)
+hist(MyData$Outstate)
+hist(MyData$Room.Board)
+hist(MyData$Books)
+hist(MyData$Personal)
+hist(MyData$PhD)
+hist(MyData$Terminal)
+hist(MyData$perc.alumni)
+hist(MyData$Expend)
+hist(MyData$Grad.Rate)
+```
+
+
+From the first four histograms, we can see that for the colleges in this dataset:
+  most of the colleges have number of applications recieved in [0,5000];
+  most of the colleges have number of applicants accepted in [0,2500];
+  most of the colleges have number of new students recieved in [0,500];
+  most of the colleges Student/Falculty ratio in [10,20]
+  
+  
+```{r}
+# Boxplots:
+
+boxplot(MyData$S.F.Ratio)
+boxplot(MyData$perc.alumni)
+boxplot(MyData$Grad.Rate)
+
+
+boxplot(MyData$Apps)
+boxplot(MyData$Accept)
+boxplot(MyData$Enroll)
+boxplot(MyData$Top10perc)
+boxplot(MyData$Top25perc)
+boxplot(MyData$F.Undergrad)
+boxplot(MyData$P.Undergrad)
+boxplot(MyData$Outstate)
+boxplot(MyData$Room.Board)
+boxplot(MyData$Books)
+boxplot(MyData$Personal)
+boxplot(MyData$PhD)
+boxplot(MyData$Terminal)
+boxplot(MyData$Expend)
+
+
+```
+
+From the first three boxplots, we can see that:
+ the S.F.Ratio of most colleges lies in [10,20];
+ the percent alumni who donate of most colleges lies in [10,30];
+ the grduation rate of most colleges lies in [50,80].
+
+
+# *****************************Part IV ****************************
+
+some multivarite graphical summaries(at least one with pair-wise scatter plots, and at least one with 
+side-by-side boxplots)
+
+(1) scatter plot of Expend and S.F.Ration
+```{r}
+
+ ggplot( data = MyData, mapping = aes( x = Expend, y = S.F.Ratio, shape = Private))+
+  geom_point()
+
+```
+
+  From the above scatter plot, we can see that there is a quite obvious distinction in the Expend and S.F.Ratio between private college and public college;
+  In general, both the Expend variable and the S.F.Ratio of private schools have a larger range than those of the public schools;
+  Especially for the Expend variable, there are quite a few private schools that have much higher expend than most of the oublic schools.
+
+
+(2) side-by-side boxplot of Private and S.F.Ratio
+```{r}
+
+ boxplot(MyData$S.F.Ratio ~ MyData$Private)
+
+```
+
+From the above side-by-side boxplots, we can see that the median S.F.Ratio of public schools is lower than the one for private school.
+What's more, the S.F.Ratio of private schools, spreads more widely(have a larger SD).
+
+
+
+
+Conclusion:
+  Although only a few variables are compared, it's not difficult to see from the above plots that private colleges have the potential to provide undergraduate education with better quality. These colleges are more sufficient with funds(we can see this by the tution fees difference between two types of colleges) and have smaller Student/Falculty ration, which usually implies services and courses with better quality.
